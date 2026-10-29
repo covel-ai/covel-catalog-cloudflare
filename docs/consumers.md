@@ -12,8 +12,8 @@ The shared publisher recognizes `X-Catalog-Ingest: staged-v1` on the policy pref
 
 Both consumer sites now pin kit **0.3.1**, commit `5fca414b7e1b505174a21cf329b0dbf6c27b260c`, with identical complete 56-file manifests and the same generated default-dark head block. This Worker still pins 0.3.0: 0.3.1 only adds theme preference handling and does not change the API contract.
 
-- Worlds rollout: `fb20999c518c9113b00d0853cfe8b4b4c991c31a` (includes theme commit `0c9c6225ff84ba53045d9ac0da5b372d7ec0f20f`).
-- Plugins rollout: `38c667cda5a8135f0760b2a87a6ce195518e62d9` (includes theme commit `e1c4593`).
+- Worlds rollout: `fc1932cc60e0d18ead8e83e070a177119e53e1d7` (includes theme commit `0c9c6225ff84ba53045d9ac0da5b372d7ec0f20f`).
+- Plugins rollout: `e0edfcb6abc4eb5e6d9fae80b572c6672e486995` (includes theme commit `e1c4593`).
 
 Each consumer uses `.github/workflows/site.yml` (**Publish site with Cloudflare catalog**) and the public repository variable `DIRECTORY_API_URL=https://api.covel.cc`. It verifies the current policy and bounded catalog response, then builds the pinned UI with `VITE_CATALOG_API` and publishes static Pages assets. Local fixture exports are omitted. Neither site has a catalog write secret or Cloudflare token.
 
