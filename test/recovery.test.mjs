@@ -12,7 +12,9 @@ const execute=promisify(execFile),root=process.cwd();
 async function project(){
   const directory=await mkdtemp(path.join(os.tmpdir(),'covel-recovery-'));
   await symlink(path.join(root,'node_modules'),path.join(directory,'node_modules'));
-  await copyFile(path.join(root,'wrangler.jsonc'),path.join(directory,'wrangler.jsonc'));
+  const config=JSON.parse(await readFile(path.join(root,'wrangler.jsonc'),'utf8'));
+  config.d1_databases[0].database_id='00000000-0000-0000-0000-000000000000';
+  await writeFile(path.join(directory,'wrangler.jsonc'),JSON.stringify(config));
   await copyFile(path.join(root,'catalog-kit.lock.json'),path.join(directory,'catalog-kit.lock.json'));
   return directory;
 }

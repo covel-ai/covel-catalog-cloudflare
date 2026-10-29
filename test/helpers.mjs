@@ -1,5 +1,5 @@
 import { Miniflare,convertV4MiniflareOptions } from 'miniflare';
-import { mkdtemp,readFile } from 'node:fs/promises';
+import { mkdtemp,readFile,readdir } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { apiClient } from '../scripts/api.mjs';
@@ -16,7 +16,7 @@ export async function setup(t,{directory,initialize=true}={}) {
     serviceBindings:{GITHUB:async()=>Response.json(repository)}};
   const mf=new Miniflare(convertV4MiniflareOptions({resourcePersistencePath:directory,workers:[{name:'primary',...worker},{name:'peer',...worker}]}));
   let disposed=false; const close=async()=>{if(!disposed){disposed=true;await mf.dispose();}};t.after(close);const db=await mf.getD1Database('DB','primary'),bucket=await mf.getR2Bucket('BUCKET','primary');
-  if(initialize)await db.exec((await readFile('migrations/0001_catalog.sql','utf8')).replace(/--[^\n]*/g,'').replace(/\n/g,' '));
+  if(initialize)for(const file of (await readdir('migrations')).filter(f=>f.endsWith('.sql')).sort())await db.exec((await readFile(`migrations/${file}`,'utf8')).replace(/--[^\n]*/g,'').replace(/\n/g,' '));
   const fetchImpl=(url,init)=>mf.dispatchFetch(url,init);
   const peer=await mf.getWorker('peer');
   const client=(token,onPeer=false)=>apiClient({url:'https://api.covel.cc',token,fetchImpl:onPeer?(url,init)=>peer.fetch(url,init):fetchImpl});

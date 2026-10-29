@@ -9,12 +9,18 @@ import { apiClient,remoteCheckpoint } from './api.mjs';
 import { publish } from './publish.mjs';
 
 const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-export function coordinatedFetch(client,jobPath,fetchImpl=fetch) {
+export function coordinatedFetch(client,jobPath,fetchImpl=fetch,authenticated=false) {
   return async(url,init)=>{
     let lease;
     for(let attempt=0;attempt<5;attempt++){
-      try {lease=await client.json(`${jobPath}/github/reserve`,{data:{}});break;}
-      catch(e){if(e.status!==429||attempt===4)throw e;await wait(1500*(attempt+1));}
+      try {lease=await client.json(`${jobPath}/github/reserve`,{data:{authenticated}});break;}
+      catch(e){
+        if(e.status!==429)throw e;
+        // Preserve the status through the shared GitHub client's transport retry
+        // boundary so a quota pause never consumes all task failure attempts.
+        if(attempt===4)return Response.json({message:'Shared GitHub budget paused'},{status:429,headers:{'retry-after':'3600'}});
+        await wait(1500*(attempt+1));
+      }
     }
     let response,finished=false;
     const finish=async()=>{
@@ -34,7 +40,7 @@ export async function executeJob({url,claim,githubToken,fetchImpl=fetch,cacheDir
   const {job,leaseToken}=claim,client=apiClient({url,token:leaseToken,fetchImpl}),base=`/internal/jobs/${job.id}`;
   let lost=false;
   const timer=setInterval(()=>client.json(`${base}/heartbeat`,{data:{}}).catch(()=>{lost=true;}),30000);timer.unref();
-  const checkedFetch=async(...args)=>{if(lost)throw new Error('Task lease was lost');return coordinatedFetch(client,base,fetchImpl)(...args);};
+  const checkedFetch=async(...args)=>{if(lost)throw new Error('Task lease was lost');return coordinatedFetch(client,base,fetchImpl,Boolean(githubToken))(...args);};
   const get=createGitHubClient({token:githubToken,fetchImpl:checkedFetch,cache:diskCache(path.join(cacheDir,'github')),maxRequests:850,maxWaitMs:10000});
   try {
     if(job.type==='artifact'){
@@ -53,7 +59,7 @@ export async function executeJob({url,claim,githubToken,fetchImpl=fetch,cacheDir
     return {jobId:job.id,state:'done'};
   }catch(e){
     const retryable=e.status===429||e.status>=500||e.name==='GitHubError';
-    await client.json(`${base}/fail`,{data:{retryable,code:job.type==='collect'?'collection_failed':'preparation_failed'}}).catch(()=>{});
+    await client.json(`${base}/fail`,{data:{retryable,code:e.status===429?'github_budget':job.type==='collect'?'collection_failed':'preparation_failed'}}).catch(()=>{});
     // Do not emit transport bodies, headers, archive data, or credential-bearing errors.
     console.error(JSON.stringify({jobId:job.id,state:'failed',retryable,diagnostic:e instanceof MetadataError||e instanceof GitHubError?e.message.slice(0,300):e.code??'transport_or_storage_error'}));throw new Error('Trusted task failed; checkpoint and previous snapshot retained');
   }finally{clearInterval(timer);}

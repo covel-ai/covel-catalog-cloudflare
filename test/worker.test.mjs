@@ -74,12 +74,30 @@ test('lease expiry, retries, shared budget and independent kind publication are 
   assert.equal(reservations.filter(r=>r.status==='fulfilled').length,1);
   await fresh.json(`${base}/fail`,{data:{retryable:true,code:'github_budget'}});
   assert.equal(await runner.json('/internal/claim',{data:{}}),null);
+  const paused=await h.db.prepare('SELECT attempts,available FROM jobs WHERE id=?').bind(one.job.id).first();
+  assert.equal(paused.attempts,1,'quota pauses refund the latest attempt');
+  assert.ok(paused.available>Math.floor(Date.now()/3600000)*3600000+3599999,'resume after the shared hourly reset');
   const worlds=catalog([entry({kind:'worlds'})],{kind:'worlds',topics:['covel-world'],generatedAt:stamp(2)});await h.publish(worlds);
   assert.equal((await h.raw('/v1/catalog?kind=plugins')).data.total,1);assert.equal((await h.raw('/v1/catalog?kind=worlds')).data.total,1);
   const dir=h.directory;await h.close();const restored=await setup(t,{directory:dir,initialize:false});
   assert.equal((await restored.raw('/v1/catalog')).data.total,1);
   assert.equal((await restored.db.prepare('SELECT used FROM github_gate').first()).used,1);
   assert.equal((await restored.db.prepare('SELECT state FROM jobs WHERE id=?').bind(one.job.id).first()).state,'queued');
+});
+
+test('anonymous reads have a persistent sublimit without starving authenticated Actions',async t=>{
+  const h=await setup(t),runner=h.client(secrets.RUNNER_TOKEN);
+  await runner.json('/internal/enqueue-collection',{data:{kind:'plugins',round:'quota'}});
+  const claim=await runner.json('/internal/claim',{data:{}}),client=h.client(claim.leaseToken),base=`/internal/jobs/${claim.job.id}`;
+  await h.db.prepare('UPDATE github_gate SET window=?,used=50,anonymous_used=50,cooldown=0,lease_until=0').bind(Math.floor(Date.now()/3600000)).run();
+  await assert.rejects(client.json(`${base}/github/reserve`,{data:{authenticated:false}}),e=>e.status===429);
+  const reserved=await client.json(`${base}/github/reserve`,{data:{authenticated:true}});
+  assert.equal(reserved.used,51);
+  assert.equal((await h.db.prepare('SELECT anonymous_used FROM github_gate').first()).anonymous_used,50);
+  await h.unblockGitHub();
+  await h.db.prepare('UPDATE github_gate SET window=window-1').run();
+  assert.equal((await client.json(`${base}/github/reserve`,{data:{authenticated:false}})).used,1);
+  assert.equal((await h.db.prepare('SELECT anonymous_used FROM github_gate').first()).anonymous_used,1);
 });
 
 test('incremental rows, append-only release conflicts, tag movement and removal preserve historical snapshots',async t=>{

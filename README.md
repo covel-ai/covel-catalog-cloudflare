@@ -17,7 +17,8 @@ npm test
 - [架构、事务与授权边界](docs/architecture.md)
 - [部署、环境变量、队列运维与可重复恢复](docs/operations.md)
 - [费用、免费额度与容量边界](docs/costs.md)
+- [通过 GitHub 管理黑名单](docs/policy.md)
 - [上游变更与两个消费端接入](docs/consumers.md)
 - [本地及 CI 验收记录](docs/validation.md)
 
-本仓包含可运行实现和本地真实 workerd/D1/R2 测试。构建与 CI 不代表已经部署云资源。默认 D1 UUID 是不可部署的占位值；R2 必须保持私有且需账号单独订阅，超额计费。生产启用前按部署文档核对账号、资源、凭据与规则。
+本仓包含可运行实现和本地真实 workerd/D1/R2 测试。构建与 CI 不代表已经部署云资源。当前 Wrangler 配置绑定此部署的 D1 UUID；另行部署时须替换资源绑定并设置账号 ID。R2 必须保持私有且需账号单独订阅，超额计费。生产启用前按部署文档核对账号、资源、凭据与规则。

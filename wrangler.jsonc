@@ -3,7 +3,8 @@
   "name": "covel-catalog", "main": "src/worker.mjs",
   "compatibility_date": "2026-07-01", "compatibility_flags": ["nodejs_compat"],
   "workers_dev": false, "preview_urls": false,
-  "d1_databases": [{ "binding": "DB", "database_name": "catalog", "database_id": "00000000-0000-0000-0000-000000000000", "migrations_dir": "migrations" }],
+  "routes": [{ "pattern": "api.covel.cc", "custom_domain": true }],
+  "d1_databases": [{ "binding": "DB", "database_name": "catalog", "database_id": "de95aada-b5b5-4927-83a9-22c31ca4a4c9", "migrations_dir": "migrations" }],
   "r2_buckets": [{ "binding": "BUCKET", "bucket_name": "covel-catalog-private" }],
   "vars": {
     "PUBLIC_URL": "https://api.covel.cc", "ALLOWED_ORIGINS": "https://worlds.covel.cc,https://plugins.covel.cc",

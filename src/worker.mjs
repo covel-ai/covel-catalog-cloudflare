@@ -106,7 +106,7 @@ async function handle(request,env,ctx) {
   if(method==='GET'&&route==='/admin/status') {
     authorize(request,env.OPS_TOKEN);
     return json({snapshots:await all(env.DB,'SELECT c.kind,c.snapshot_id,s.generated,s.entries FROM current_snapshots c JOIN snapshots s ON s.id=c.snapshot_id'),
-      tasks:await all(env.DB,'SELECT type,state,count(*) count FROM jobs GROUP BY type,state'),budget:await first(env.DB,'SELECT window,used,cooldown,lease_until FROM github_gate'),
+      tasks:await all(env.DB,'SELECT type,state,count(*) count FROM jobs GROUP BY type,state'),budget:await first(env.DB,'SELECT window,used,anonymous_used,cooldown,lease_until FROM github_gate'),
       artifactBytes:(await first(env.DB,'SELECT COALESCE(sum(bytes),0) bytes FROM object_reservations')).bytes,
       policy:await first(env.DB,'SELECT sequence,expires FROM policies ORDER BY sequence DESC LIMIT 1')});
   }
@@ -124,7 +124,10 @@ async function handle(request,env,ctx) {
     const job=await jobFor(env.DB,task[1],request),action=task[2];
     if(method==='POST'&&action==='heartbeat')return json(await heartbeat(env.DB,job));
     if(method==='POST'&&action==='fail')return json(await failJob(env.DB,job,z.object({retryable:z.boolean(),code:z.enum(['preparation_failed','github_budget','collection_failed'])}).strict().parse(await body(request))));
-    if(method==='POST'&&action==='github/reserve')return json(await reserveGitHub(env.DB,Number(env.GITHUB_HOURLY_BUDGET??50)));
+    if(method==='POST'&&action==='github/reserve'){
+      const input=z.object({authenticated:z.boolean().default(false)}).strict().parse(await body(request));
+      return json(await reserveGitHub(env.DB,Number(env.GITHUB_HOURLY_BUDGET??50),Date.now(),!input.authenticated));
+    }
     if(method==='POST'&&action==='github/release'){
       const input=z.object({token:z.string().length(43),status:z.number().int(),remaining:z.number().nullable(),reset:z.number().nullable(),retryAfter:z.number().nullable()}).strict().parse(await body(request));
       await releaseGitHub(env.DB,input.token,input);return json({released:true});

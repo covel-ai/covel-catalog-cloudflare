@@ -29,14 +29,22 @@ export async function heartbeat(db,job,now=Date.now()) {
   await batch(db,[leaseGuard(db,job,now),s(db,'UPDATE jobs SET lease_until=? WHERE id=?',now+120000,job.id)]);return {leaseUntil:now+120000};
 }
 export async function failJob(db,job,{retryable=false,code='preparation_failed'}={},now=Date.now()) {
+  if(retryable&&code==='github_budget') {
+    const gate=await first(db,'SELECT cooldown FROM github_gate WHERE id=1');
+    const available=Math.max((Math.floor(now/3600000)+1)*3600000+1000,gate?.cooldown??0);
+    await batch(db,[leaseGuard(db,job,now),s(db,"UPDATE jobs SET state='queued',error=?,available=?,attempts=max(0,attempts-1),lease_hash=NULL,lease_until=0 WHERE id=?",code,available,job.id)]);
+    return {state:'queued',available};
+  }
   const retry=retryable&&job.attempts<5;
   await batch(db,[leaseGuard(db,job,now),s(db,'UPDATE jobs SET state=?,error=?,available=?,finished=?,lease_hash=NULL,lease_until=0 WHERE id=?',retry?'queued':'failed',code,now+Math.min(3600000,30000*2**job.attempts),retry?null:now,job.id)]);
   return {state:retry?'queued':'failed'};
 }
-export async function reserveGitHub(db,limit,now=Date.now()) {
+export async function reserveGitHub(db,limit,now=Date.now(),anonymous=false) {
   const value=token(),window=Math.floor(now/3600000);
-  const row=await first(db,`UPDATE github_gate SET lease_hash=?,lease_until=?,window=?,used=CASE WHEN window=? THEN used+1 ELSE 1 END
-    WHERE id=1 AND lease_until<=? AND cooldown<=? AND (window<>? OR used<?) RETURNING used`,sha256(value),now+45000,window,window,now,now,window,limit);
+  const row=await first(db,`UPDATE github_gate SET lease_hash=?,lease_until=?,window=?,used=CASE WHEN window=? THEN used+1 ELSE 1 END,
+    anonymous_used=CASE WHEN window=? THEN anonymous_used+? ELSE ? END
+    WHERE id=1 AND lease_until<=? AND cooldown<=? AND (window<>? OR used<?)
+    AND (?=0 OR window<>? OR anonymous_used<50) RETURNING used`,sha256(value),now+45000,window,window,window,Number(anonymous),Number(anonymous),now,now,window,limit,Number(anonymous),window);
   if(!row)fail(429,'github_budget','Shared GitHub queue or hourly budget is busy; resume later');return {token:value,used:row.used};
 }
 export async function releaseGitHub(db,value,{status=200,remaining=null,reset=null,retryAfter=null}={},now=Date.now()) {
@@ -46,7 +54,7 @@ export async function releaseGitHub(db,value,{status=200,remaining=null,reset=nu
   await run(db,'UPDATE github_gate SET lease_until=0,lease_hash=NULL,cooldown=max(cooldown,?) WHERE id=1 AND lease_hash=?',cooldown,sha256(value));
 }
 export async function liveRepository(env,entry) {
-  const lease=await reserveGitHub(env.DB,Number(env.GITHUB_HOURLY_BUDGET??50));
+  const lease=await reserveGitHub(env.DB,Number(env.GITHUB_HOURLY_BUDGET??50),Date.now(),!env.GITHUB_TOKEN);
   let response;
   try {
     response=await (env.GITHUB?env.GITHUB.fetch(`https://api.github.com/repositories/${entry.repositoryId}`):fetch(`https://api.github.com/repositories/${entry.repositoryId}`,{
