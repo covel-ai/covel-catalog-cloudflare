@@ -1,0 +1,42 @@
+name: Trusted catalog tasks
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/5 * * * *'
+    - cron: '17 */6 * * *'
+  push:
+    branches: [main]
+    paths: ['catalog/**', 'scripts/runner.mjs', 'catalog-kit.lock.json']
+permissions:
+  contents: read
+concurrency:
+  group: trusted-catalog-runner
+  cancel-in-progress: false
+jobs:
+  run:
+    if: vars.CATALOG_API_URL != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: catalog-runner
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 26
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run check:vendor
+      - name: Claim durable tasks; collect on the six-hour trigger
+        env:
+          CATALOG_API_URL: ${{ vars.CATALOG_API_URL }}
+          CATALOG_RUNNER_TOKEN: ${{ secrets.CATALOG_RUNNER_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.CATALOG_GITHUB_TOKEN || github.token }}
+          COLLECT: ${{ github.event.schedule == '17 */6 * * *' || github.event_name == 'workflow_dispatch' || github.event_name == 'push' }}
+        run: |
+          if [ "$COLLECT" = "true" ]; then
+            node scripts/runner.mjs --collect
+          else
+            node scripts/runner.mjs
+          fi

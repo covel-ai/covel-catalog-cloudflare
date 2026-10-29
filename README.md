@@ -1,21 +1,23 @@
-# Covel Catalog · Cloudflare
+# Covel Catalog — Cloudflare
 
-Cloudflare deployment for the shared Covel Worlds and Plugins catalog.
+面向少量用户的独立部署：**Workers + D1 + 私有 R2**，GitHub Actions 负责采集和 ZIP 打包。不需要 VPS、Redis 或 Kubernetes；不会自动开通付费计划。
 
-面向少量用户，以免费额度起步。此仓负责独立部署；公共协议、校验规则和 UI 由 [covel-ai/covel-catalog](https://github.com/covel-ai/covel-catalog) 统一维护。
+两个站点共用 `https://api.covel.cc`。目录默认返回 24 条摘要，详情与历史按需读取。首次未缓存下载返回持久 `202 pending` 任务；可信 runner 完成单包校验后才签发票据并计入 `downloadRequests`。旧票据、历史版本和缓存命中始终检查当前规则及 GitHub 公开身份。
 
-## Implementation target
+```sh
+npm ci --ignore-scripts
+npm run check:vendor
+npm run test:kit
+npm run build
+npm test
+```
 
-- Workers: catalog queries, policy enforcement and download gateway at `api.covel.cc`.
-- D1: revisions, observations, policy, idempotent tickets, counters and durable packaging jobs.
-- Private R2: immutable package ZIPs addressed by their SHA256.
-- GitHub Actions: resumable GitHub collection and bounded ZIP packaging; never execute third-party package scripts.
-- Existing Pages sites: `worlds.covel.cc` and `plugins.covel.cc`, sharing the same UI and API contract.
+公共规则、适配器、哈希、打包器及同一套 UI 来自 [covel-ai/covel-catalog](https://github.com/covel-ai/covel-catalog) 的固定 commit。`catalog-kit.lock.json` 记录完整文件 SHA-256 清单；不手改 vendor，依赖安装只使用副本。Workers 仅消费可运行的存储无关核心，不加载 Node SQLite/HTTP/磁盘服务。
 
-Initial upstream pin: `dc8904eceabfe8017d440acf98c0ae5ab5e5cf5f`, `packages/catalog-kit`, version `0.2.0`. Vendor updates must use a fixed commit plus a full SHA256 manifest. No independent fork of shared business rules.
+- [架构、事务与授权边界](docs/architecture.md)
+- [部署、环境变量、队列运维与可重复恢复](docs/operations.md)
+- [费用、免费额度与容量边界](docs/costs.md)
+- [上游变更与两个消费端接入](docs/consumers.md)
+- [本地及 CI 验收记录](docs/validation.md)
 
-## Status
-
-Repository initialized. Cloudflare implementation, local integration tests and deployment configuration are being developed in the dedicated T3 session. No Cloudflare resources have been created or deployed by this initialization.
-
-The existing Node/Docker service remains in the upstream repository. Cloudflare requires runtime and persistence adapters; the current Node service cannot be uploaded unchanged.
+本仓包含可运行实现和本地真实 workerd/D1/R2 测试。构建与 CI 不代表已经部署云资源。默认 D1 UUID 是不可部署的占位值；R2 必须保持私有且需账号单独订阅，超额计费。生产启用前按部署文档核对账号、资源、凭据与规则。

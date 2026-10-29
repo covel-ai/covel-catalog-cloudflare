@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "sequence": 1,
+  "version": "review-before-publishing",
+  "issuedAt": "2000-01-01T00:00:00.000Z",
+  "expiresAt": "2000-01-02T00:00:00.000Z",
+  "rules": []
+}

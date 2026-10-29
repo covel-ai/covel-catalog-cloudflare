@@ -1,0 +1,42 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtemp,mkdir,copyFile,symlink,readFile,writeFile } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import path from 'node:path';
+import os from 'node:os';
+import { sha256 } from '@covel/catalog-kit/hash';
+import { setup,entry,catalog,secrets } from './helpers.mjs';
+import { verifyBackup } from '../scripts/backup.mjs';
+const execute=promisify(execFile),root=process.cwd();
+async function project(){
+  const directory=await mkdtemp(path.join(os.tmpdir(),'covel-recovery-'));
+  await symlink(path.join(root,'node_modules'),path.join(directory,'node_modules'));
+  await copyFile(path.join(root,'wrangler.jsonc'),path.join(directory,'wrangler.jsonc'));
+  await copyFile(path.join(root,'catalog-kit.lock.json'),path.join(directory,'catalog-kit.lock.json'));
+  return directory;
+}
+test('Wrangler SQL export plus private R2 backup restores exact counters, policy, search and redeemable old tickets',async t=>{
+  const source=await project(),h=await setup(t,{directory:path.join(source,'.wrangler/state/v3')});await h.policy();await h.publish(catalog());
+  const detail=(await h.raw(`/v1/entries/${encodeURIComponent(entry().key)}`)).data;
+  const bytes=Buffer.from('PK recovery fixture'),digest=sha256(bytes),key=`artifacts/${digest}.zip`;
+  await h.bucket.put(key,bytes,{sha256:digest,customMetadata:{sha256:digest}});
+  const artifact={storageKey:key,artifactSha256:digest,contentHash:'c'.repeat(64),packagerVersion:'covel-zip-v1',hashScheme:'covel-package-v1',size:bytes.length,filename:'recovery.zip'};
+  await h.db.prepare('INSERT INTO artifacts VALUES(?,?,?,?,?)').bind(detail.revisionId,artifact.packagerVersion,digest,JSON.stringify(artifact),Date.now()).run();
+  const ticket=(await h.raw('/v1/downloads','POST',{key:entry().key,revisionId:detail.revisionId,idempotencyKey:'recovery-ticket-000001'})).data;
+  assert.ok(ticket.url);
+  await h.db.prepare("UPDATE settings SET value='1' WHERE key='maintenance'").run();await h.close();
+  const backup=path.join(source,'backup');
+  await execute(process.execPath,[path.join(root,'scripts/backup.mjs'),'create',backup],{cwd:source,maxBuffer:4*1024**2,env:{...process.env,WRANGLER_SEND_METRICS:'false'}});
+  const verified=await verifyBackup(backup);assert.equal(verified.files.length,2);
+  const target=await project(),restored=await setup(t,{directory:path.join(target,'.wrangler/state/v3')});
+  await execute(process.execPath,[path.join(root,'scripts/restore.mjs'),backup],{cwd:target,maxBuffer:4*1024**2,env:{...process.env,CATALOG_API_URL:String(await restored.mf.ready),CATALOG_OPS_TOKEN:secrets.OPS_TOKEN,WRANGLER_SEND_METRICS:'false'}});
+  assert.equal((await restored.db.prepare("SELECT value FROM settings WHERE key='maintenance'").first()).value,'1');
+  assert.equal((await restored.db.prepare('SELECT requests FROM counters').first()).requests,1);
+  assert.equal((await restored.db.prepare('SELECT count(*) n FROM tickets').first()).n,1);
+  await restored.db.prepare("UPDATE settings SET value='0' WHERE key='maintenance'").run();
+  assert.equal((await restored.raw('/v1/catalog?q=Demo')).data.total,1);
+  await restored.unblockGitHub();const response=await restored.mf.dispatchFetch(ticket.url);
+  assert.equal(response.status,200);assert.deepEqual(Buffer.from(await response.arrayBuffer()),bytes);
+  const object=verified.files.find(f=>f.key);await writeFile(path.join(backup,object.file),'corrupt');await assert.rejects(verifyBackup(backup),/integrity/);
+});

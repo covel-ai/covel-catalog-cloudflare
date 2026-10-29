@@ -1,0 +1,14 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "covel-catalog", "main": "src/worker.mjs",
+  "compatibility_date": "2026-07-01", "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false, "preview_urls": false,
+  "d1_databases": [{ "binding": "DB", "database_name": "catalog", "database_id": "00000000-0000-0000-0000-000000000000", "migrations_dir": "migrations" }],
+  "r2_buckets": [{ "binding": "BUCKET", "bucket_name": "covel-catalog-private" }],
+  "vars": {
+    "PUBLIC_URL": "https://api.covel.cc", "ALLOWED_ORIGINS": "https://worlds.covel.cc,https://plugins.covel.cc",
+    "GITHUB_HOURLY_BUDGET": "900", "MAX_PENDING_JOBS": "50", "MAX_ARTIFACT_BYTES": "8388608000",
+    "ACTIONS_REPOSITORY": "covel-ai/covel-catalog-cloudflare", "ACTIONS_REF": "main"
+  },
+  "observability": { "enabled": true, "head_sampling_rate": 0.1 }
+}

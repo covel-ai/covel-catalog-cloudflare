@@ -1,0 +1,17 @@
+{
+  "config": {
+    "topics": [
+      "covel-world",
+      "covel-worlds"
+    ],
+    "officialRepositories": [
+      "covel-ai/covel-worlds"
+    ],
+    "seedRepositories": [
+      "covel-ai/covel-worlds"
+    ],
+    "excludeRepositories": {},
+    "maxWorldsPerRepository": 100
+  },
+  "overrides": []
+}

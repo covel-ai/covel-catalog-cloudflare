@@ -1,0 +1,28 @@
+{
+  "name": "covel-catalog-cloudflare",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=26"
+  },
+  "scripts": {
+    "dev": "wrangler dev",
+    "build": "wrangler deploy --dry-run --outdir dist",
+    "test": "node --test test/*.test.mjs",
+    "test:kit": "cd node_modules/@covel/catalog-kit && node --test test/*.test.mjs",
+    "check:vendor": "node scripts/catalog-kit.mjs check && node scripts/check-installed.mjs",
+    "migrate:local": "wrangler d1 migrations apply catalog --local",
+    "deploy": "node scripts/deploy.mjs",
+    "runner": "node scripts/runner.mjs"
+  },
+  "dependencies": {
+    "@covel/catalog-kit": "file:vendor/catalog-kit",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "miniflare": "5.20261023.2-beta",
+    "wrangler": "4.155.0"
+  }
+}

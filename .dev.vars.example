@@ -1,0 +1,13 @@
+# Supply distinct random values of at least 32 characters using your secret manager.
+# This example contains no working credentials. Empty values fail closed.
+CURSOR_SECRET=
+POLICY_TOKEN=
+PLUGINS_INGEST_TOKEN=
+WORLDS_INGEST_TOKEN=
+RUNNER_TOKEN=
+OPS_TOKEN=
+# Public-read GitHub token, server side only. Without one set budget <= 50/hour.
+GITHUB_TOKEN=
+# Optional fine-grained Actions-write token, restricted to this deployment repo.
+# The five-minute scheduled runner still operates without dispatch acceleration.
+ACTIONS_DISPATCH_TOKEN=
