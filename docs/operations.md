@@ -96,3 +96,12 @@ node scripts/restore.mjs /secure/backups/covel-YYYYMMDD --remote
 5. Disable maintenance, verify both directories and a fresh/old ticket including Range, then switch the production custom domain and resume the runner schedule. Existing transferred bytes cannot be recalled. If validation fails, keep the old production pointer/domain and diagnose the isolated target.
 
 Omit `--remote` for local drills. The acceptance suite runs this export/import/object recovery flow against actual persisted workerd D1/R2 stores and checks a redeemed old ticket and an unchanged counter.
+
+
+## Static directory sites
+
+The two frontend sites use **GitHub Pages**, while `api.covel.cc` uses the Cloudflare Worker. Their GitHub Pages custom domains are `worlds.covel.cc` and `plugins.covel.cc`. Verify `covel.cc` in the organization Pages settings, bind each hostname to its own repository, then create DNS-only CNAME records `worlds` and `plugins` pointing to `covel-ai.github.io` (never a repository path). Preserve the GitHub verification TXT record. Wait for GitHub to issue each certificate, then enable HTTPS enforcement and verify HTTP/project-URL redirects and browser API CORS. DNS validity does not by itself prove certificate readiness.
+
+Both content repositories publish with `site.yml` and `DIRECTORY_API_URL=https://api.covel.cc`. The old Node collection/proxy `pages.yml` workflow stays disabled. Remove `DIRECTORY_SITE_URL` and `DIRECTORY_SIBLING_URL` project-path overrides before building for the custom domains. No ingest token or Cloudflare credential is needed in these two repositories; the trusted runner here owns production ingestion. A new kit release is pushed to the canonical repository first, then both reviewed consumers with identical complete locks. Their production deploy workflows must succeed before checking the corresponding live pages.
+
+GitHub About descriptions and Website fields are repository metadata rather than Git files: the Covel main repository points to `https://covel.cc/`, each content repository to its own site, the shared kit to its README, and this deployment repository to these operations docs. The public demo is `https://demo.covel.cc/` and requires the visitor's own API key. Keep the application source (`ackness/covel`) distinct from each directory source in homepage navigation.
