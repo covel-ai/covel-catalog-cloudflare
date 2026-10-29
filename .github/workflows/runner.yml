@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   run:
-    if: vars.CATALOG_API_URL != ''
+    if: github.ref == 'refs/heads/main' && vars.CATALOG_API_URL != ''
     runs-on: ubuntu-latest
     timeout-minutes: 45
     environment: catalog-runner

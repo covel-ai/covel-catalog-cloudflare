@@ -17,6 +17,6 @@ The synthetic 100/1,000/10,000-row fixture keeps its response near 30 KB and exa
 
 ## Remote and deployment boundaries
 
-The standalone repository's CI runs the same vendor, installed-contract, bundle, workerd/D1/R2 recovery and dependency checks. Its resulting run is recorded after pushing the acceptance branch and before advancing main.
+The standalone repository's [acceptance CI](https://github.com/covel-ai/covel-catalog-cloudflare/actions/runs/40860320414) passed for implementation commit `6d064f94ebe96e963adb96487190cf5f01b72d75` on the acceptance branch before advancing main. It runs vendor/installed integrity, shared contracts, bundle, workerd/D1/R2 recovery and full dependency audit. Later documentation or workflow commits run the same CI again.
 
 Cloudflare CLI preflight currently reports **not authenticated**. The committed D1 ID remains a deployment guard placeholder. No Worker, D1 database, R2 bucket, subscription, DNS/custom domain, production secret, policy or live catalog was deployed by local testing. No real GitHub collection was claimed from fixture runs. Both consumer sites still need the coordinated kit/UI/workflow rollout described in [consumers](consumers.md).
