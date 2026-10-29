@@ -54,7 +54,14 @@ export async function releaseGitHub(db,value,{status=200,remaining=null,reset=nu
   await run(db,'UPDATE github_gate SET lease_until=0,lease_hash=NULL,cooldown=max(cooldown,?) WHERE id=1 AND lease_hash=?',cooldown,sha256(value));
 }
 export async function liveRepository(env,entry) {
-  const lease=await reserveGitHub(env.DB,Number(env.GITHUB_HOURLY_BUDGET??50),Date.now(),!env.GITHUB_TOKEN);
+  let lease;
+  // Ticket issuance and its immediate GET/HEAD share the same persistent gate.
+  // Absorb the short inter-request cooldown without bypassing the lease or quota.
+  // A busy collector or exhausted hourly budget still fails closed after 2.2s.
+  for(let attempt=0;attempt<3;attempt++) {
+    try {lease=await reserveGitHub(env.DB,Number(env.GITHUB_HOURLY_BUDGET??50),Date.now(),!env.GITHUB_TOKEN);break;}
+    catch(error){if(error.code!=='github_budget'||attempt===2)throw error;await new Promise(resolve=>setTimeout(resolve,1100));}
+  }
   let response;
   try {
     response=await (env.GITHUB?env.GITHUB.fetch(`https://api.github.com/repositories/${entry.repositoryId}`):fetch(`https://api.github.com/repositories/${entry.repositoryId}`,{

@@ -10,12 +10,14 @@ The shared publisher recognizes `X-Catalog-Ingest: staged-v1` on the policy pref
 
 ## Impact on the existing consumers
 
-The following repositories were read for integration context and have **not** been edited or pushed by this implementation:
+Both consumer sites now pin kit **0.3.1**, commit `5fca414b7e1b505174a21cf329b0dbf6c27b260c`, with identical complete 56-file manifests and the same generated default-dark head block. This Worker still pins 0.3.0: 0.3.1 only adds theme preference handling and does not change the API contract.
 
-- `/root/covel-worlds`, local consumer commit `97bf0cf`, currently pinned to 0.2.0.
-- `/root/covel-plugins`, local consumer commit `107d481099889b9d01d9d7c83a69e7403c35f321`, currently pinned to 0.2.0.
+- Worlds rollout: `fb20999c518c9113b00d0853cfe8b4b4c991c31a` (includes theme commit `0c9c6225ff84ba53045d9ac0da5b372d7ec0f20f`).
+- Plugins rollout: `38c667cda5a8135f0760b2a87a6ce195518e62d9` (includes theme commit `e1c4593`).
 
-Coordinate a normal kit sync/lock refresh in both, clean-install from the consumer root, run shared/consumer/browser acceptance and build the same UI with `VITE_CATALOG_API=https://api.covel.cc`. Their existing Node-service collection proxy workflows must not be pointed unchanged at CF. For this deployment, turn off duplicate production collection/ingestion in the content repositories and let this runner own it; retain their fixture/manifest validation and static Pages build. Alternatively, a deliberately separate direct-GitHub collector can publish with the upgraded shared staged publisher, but it must join the same deployment budget/lease design before being called globally coordinated.
+Each consumer uses `.github/workflows/site.yml` (**Publish site with Cloudflare catalog**) and the public repository variable `DIRECTORY_API_URL=https://api.covel.cc`. It verifies the current policy and bounded catalog response, then builds the pinned UI with `VITE_CATALOG_API` and publishes static Pages assets. Local fixture exports are omitted. Neither site has a catalog write secret or Cloudflare token.
+
+The old `.github/workflows/pages.yml` combined Node proxy/collector workflow is disabled in GitHub Actions, with `CATALOG_API_URL` unset. It remains checked against the pinned shared Node template, but must not be enabled against this deployment. Only this repository's trusted runner performs production collection and ingestion; its D1 leases and GitHub budget coordinate all instances. `https://covel-ai.github.io` is also an allowed browser origin for the two GitHub Pages project URLs while custom domain verification is pending.
 
 `catalog/plugins.json` and `catalog/worlds.json` are deployment data: reviewed Topics, official-name lists, migration seeds, limits, and the Plugins frozen migration metadata read from those consumer checkouts. They are not a copied parser or collector implementation. Changes to collection inputs are reviewed here and trigger a new six-hour collection round. Official status always comes from the current configured repository name; seeds cannot override policy/public visibility or current manifest declarations.
 

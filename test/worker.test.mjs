@@ -48,10 +48,11 @@ test('real workerd R2: durable single flight, fenced upload, atomic tickets, Ran
   const artifact={artifactSha256:hash,contentHash:'c'.repeat(64),hashScheme:'covel-package-v1',packagerVersion:'covel-zip-v1',size:bytes.length,filename:'demo.zip'};
   await job.json(`${base}/complete-artifact`,{data:artifact});
   await h.unblockGitHub();const ready=await h.raw('/v1/downloads','POST',input);assert.equal(ready.status,200,JSON.stringify(ready));
-  await h.unblockGitHub();const retried=await h.raw('/v1/downloads','POST',input);assert.equal(retried.data.url,ready.data.url);
+  const retried=await h.raw('/v1/downloads','POST',input);assert.equal(retried.status,200);assert.equal(retried.data.url,ready.data.url);
   assert.equal((await h.db.prepare('SELECT requests FROM counters WHERE entry_key=?').bind(key).first()).requests,1);
-  await h.unblockGitHub();const range=await h.mf.dispatchFetch(ready.data.url,{headers:{range:'bytes=0-3'}});assert.equal(range.status,206);assert.deepEqual(Buffer.from(await range.arrayBuffer()),bytes.subarray(0,4));
-  await h.unblockGitHub();const head=await h.mf.dispatchFetch(ready.data.url,{method:'HEAD'});assert.equal(head.status,200);assert.equal((await head.arrayBuffer()).byteLength,0);
+  const peer=await h.mf.getWorker('peer');
+  const range=await peer.fetch(ready.data.url,{headers:{range:'bytes=0-3'}});assert.equal(range.status,206);assert.deepEqual(Buffer.from(await range.arrayBuffer()),bytes.subarray(0,4));
+  const head=await h.mf.dispatchFetch(ready.data.url,{method:'HEAD'});assert.equal(head.status,200);assert.equal((await head.arrayBuffer()).byteLength,0);
   await h.policy(policy([{id:'deny',repositoryId:42,commitSha:entry().commitSha,reason:'withdrawn',createdAt:new Date().toISOString()}],2));
   assert.equal((await h.mf.dispatchFetch(ready.data.url)).status,410);
   assert.equal((await h.raw('/v1/catalog')).data.total,0);
