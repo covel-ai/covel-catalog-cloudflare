@@ -1,6 +1,6 @@
 # Canonical kit and consumer rollout
 
-This deployment pins **kit 0.3.0**, public commit **`ab1d7e4a78683849e7368e085b73c28437eadcad`**, repository `https://github.com/covel-ai/covel-catalog`, path `packages/catalog-kit`. `catalog-kit.lock.json` contains every source file's SHA-256. The original 0.2.0 baseline was `dc8904eceabfe8017d440acf98c0ae5ab5e5cf5f` with 44 files; added public modules/tests/type declarations are included in the new complete manifest, not untracked vendor extras.
+This deployment pins **kit 0.3.3**, public commit **`25f70e0fc8d9cd61a9fb33f5ba51fe1843b935a7`** (previously 0.3.0 at `ab1d7e4a78683849e7368e085b73c28437eadcad`), repository `https://github.com/covel-ai/covel-catalog`, path `packages/catalog-kit`. `catalog-kit.lock.json` contains every source file's SHA-256. The original 0.2.0 baseline was `dc8904eceabfe8017d440acf98c0ae5ab5e5cf5f` with 44 files; added public modules/tests/type declarations are included in the new complete manifest, not untracked vendor extras.
 
 The upstream commit extracts policy matching, revision identity/conflict projection, release validation, timestamps, query normalization and update selection from the synchronous Node store into `core`. The Node store calls that same core and remains synchronous. HTTP request/range schemas are shared. The change adds the canonical collector orchestration, pending-download polling with cancellation and a declaration file, plus staged publication negotiation. It does not ship a fake D1 adapter or change the wire schema version.
 
@@ -10,7 +10,9 @@ The shared publisher recognizes `X-Catalog-Ingest: staged-v1` on the policy pref
 
 ## Impact on the existing consumers
 
-Both consumer sites now pin kit **0.3.2**, commit `d72b17eb675179f08815c1e8e9ffb5a9ee1c4e7a`, with identical complete 56-file manifests and the same generated default-dark head block. This Worker still pins 0.3.0: 0.3.1 adds safe theme preferences and 0.3.2 adds shared project/resource links and Topics guidance; neither changes the API contract.
+The consumer sites pinned kit **0.3.2**, commit `d72b17eb675179f08815c1e8e9ffb5a9ee1c4e7a`, with identical complete 56-file manifests and the same generated default-dark head block, while this Worker pinned 0.3.0. 0.3.1 adds safe theme preferences and 0.3.2 adds shared project/resource links and Topics guidance; both are UI-only and this Worker renders no UI, so taking them needs no change here.
+
+Kit **0.3.3** (`25f70e0fc8d9cd61a9fb33f5ba51fe1843b935a7`) makes the plugin and world adapters and both download validators derive the manifest fields Covel 0.0.52+ leaves out (plugin `id`, `kind`, `entry`, runtime `type`, `function.handler`, an optional `package.json`; world `id`, `schemaVersion`, `supportedLocales`). The trusted runner collects and packages with these adapters, so current-contract packages are indexed and downloadable after the next collection round. There is no API, D1 schema or R2 layout change and no migration; existing snapshots stay valid. Plugins and Worlds adopt the same pin on their own branches; the rollout is complete only when both sites and this Worker are merged and the runner has collected with 0.3.3.
 
 - Worlds rollout: `a04a140fb69511ba3cd382383e3508d8eb6698fe`.
 - Plugins rollout: `b92c7c476a5c1c5da9589ffae09105129faa177c`.
